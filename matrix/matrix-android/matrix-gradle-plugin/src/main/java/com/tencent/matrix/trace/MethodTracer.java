@@ -148,7 +148,7 @@ public class MethodTracer {
 
                     is = new FileInputStream(classFile);
                     ClassReader classReader = new ClassReader(is);
-                    ClassWriter classWriter = new TraceClassWriter(ClassWriter.COMPUTE_FRAMES, classLoader);
+                    ClassWriter classWriter = new TraceClassWriter(ClassWriter.COMPUTE_MAXS, classLoader);
                     ClassVisitor classVisitor = new TraceClassAdapter(AgpCompat.getAsmApi(), classWriter);
                     classReader.accept(classVisitor, ClassReader.EXPAND_FRAMES);
                     is.close();
@@ -215,7 +215,7 @@ public class MethodTracer {
 
                     InputStream inputStream = zipFile.getInputStream(zipEntry);
                     ClassReader classReader = new ClassReader(inputStream);
-                    ClassWriter classWriter = new TraceClassWriter(ClassWriter.COMPUTE_FRAMES, classLoader);
+                    ClassWriter classWriter = new TraceClassWriter(ClassWriter.COMPUTE_MAXS, classLoader);
                     ClassVisitor classVisitor = new TraceClassAdapter(AgpCompat.getAsmApi(), classWriter);
                     classReader.accept(classVisitor, ClassReader.EXPAND_FRAMES);
                     byte[] data = classWriter.toByteArray();

@@ -197,7 +197,7 @@ public class EvilMethodTracer extends Tracer implements ILooperListener {
                 print.append("|*\t\tStackKey: ").append(stackKey).append("\n");
                 print.append(stack.toString());
             } else {
-                print.append(String.format("AppMethodBeat is close[%s].", AppMethodBeat.getInstance().isAlive())).append("\n");
+                print.append(String.format("AppMethodBeat isAlive[%s].", AppMethodBeat.getInstance().isAlive())).append("\n");
             }
 
             print.append("=========================================================================");

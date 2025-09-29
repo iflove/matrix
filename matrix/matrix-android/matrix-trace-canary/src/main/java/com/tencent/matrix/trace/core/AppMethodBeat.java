@@ -38,6 +38,7 @@ public class AppMethodBeat implements BeatLifecycle {
 
     public interface MethodEnterListener {
         void enter(int method, long threadId);
+        void out(int method, long threadId);
     }
 
     private static final String TAG = "Matrix.AppMethodBeat";
@@ -272,7 +273,11 @@ public class AppMethodBeat implements BeatLifecycle {
         if (methodId >= METHOD_ID_MAX) {
             return;
         }
-        if (Thread.currentThread().getId() == sMainThreadId) {
+        long threadId = Thread.currentThread().getId();
+        if (sMethodEnterListener != null) {
+            sMethodEnterListener.out(methodId, threadId);
+        }
+        if (threadId == sMainThreadId) {
             if (sIndex < Constants.BUFFER_SIZE) {
                 mergeData(methodId, sIndex, false);
             } else {

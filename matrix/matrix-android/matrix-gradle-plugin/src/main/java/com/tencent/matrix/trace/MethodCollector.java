@@ -282,7 +282,12 @@ public class MethodCollector {
             if ((access & Opcodes.ACC_ABSTRACT) > 0 || (access & Opcodes.ACC_INTERFACE) > 0) {
                 this.isABSClass = true;
             }
-            collectedClassExtendMap.put(className, superName);
+            // Fix NullPointerException: prevent null value in ConcurrentHashMap
+            if (superName != null) {
+                collectedClassExtendMap.put(className, superName);
+            } else {
+                collectedClassExtendMap.put(className, "");
+            }
         }
 
         @Override

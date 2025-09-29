@@ -467,11 +467,17 @@ public class AppMethodBeat implements BeatLifecycle {
                     System.arraycopy(sBuffer, start, data, 0, sBuffer.length - start);
                     System.arraycopy(sBuffer, 0, data, sBuffer.length - start, end + 1);
                 }
+
+//                MatrixLog.i(TAG, "[copyData] Successfully copied data. Start index: %d, end index: %d, length: %d",
+//                        start, end, data.length);
                 return data;
+            } else {
+                MatrixLog.w(TAG, "[copyData] Invalid index records. StartRecord valid: %s, EndRecord valid: %s",
+                        startRecord.isValid, endRecord.isValid);
             }
             return data;
         } catch (Throwable t) {
-            MatrixLog.e(TAG, t.toString());
+            MatrixLog.e(TAG, "[copyData] Exception occurred: %s", t.toString());
             return data;
         } finally {
             MatrixLog.i(TAG, "[copyData] [%s:%s] length:%s cost:%sms", Math.max(0, startRecord.index), endRecord.index, data.length, System.currentTimeMillis() - current);

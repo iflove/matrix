@@ -48,8 +48,18 @@ public class TraceDataUtils {
         LinkedList<Long> rawData = new LinkedList<>();
         boolean isBegin = !isStrict;
 
+//        MatrixLog.i(TAG, "[structuredDataToStack] Start processing. Buffer length: %d, isStrict: %s, endTime: %d",
+//                buffer.length, isStrict, endTime);
+
+        int inCount = 0;
+        int outCount = 0;
+        int skipCount = 0;
+        int processCount = 0;
+
         for (long trueId : buffer) {
+            processCount++;
             if (0 == trueId) {
+                skipCount++;
                 continue;
             }
             if (isStrict) {
@@ -58,12 +68,15 @@ public class TraceDataUtils {
                 }
 
                 if (!isBegin) {
+                    skipCount++;
                     // MatrixLog.d(TAG, "never begin! pass this method[%s]", getMethodId(trueId));
                     continue;
                 }
 
             }
+
             if (isIn(trueId)) {
+                inCount++;
                 lastInId = getMethodId(trueId);
                 if (lastInId == AppMethodBeat.METHOD_ID_DISPATCH) {
                     depth = 0;
@@ -71,6 +84,7 @@ public class TraceDataUtils {
                 depth++;
                 rawData.push(trueId);
             } else {
+                outCount++;
                 int outMethodId = getMethodId(trueId);
                 if (!rawData.isEmpty()) {
                     long in = rawData.pop();
@@ -110,6 +124,9 @@ public class TraceDataUtils {
             }
         }
 
+//        MatrixLog.i(TAG, "[structuredDataToStack] Processing stats - Total: %d, In: %d, Out: %d, Skipped: %d, RawData size: %d, Result size: %d",
+//                processCount, inCount, outCount, skipCount, rawData.size(), result.size());
+
         while (!rawData.isEmpty() && isStrict) {
             long trueId = rawData.pop();
             int methodId = getMethodId(trueId);
@@ -125,11 +142,26 @@ public class TraceDataUtils {
                     - inTime), rawData.size());
             addMethodItem(result, methodItem);
         }
+
+        // 记录处理前的原始数据信息
+//        MatrixLog.i(TAG, "[structuredDataToStack] buffer length: %d, raw data size: %d, result size before tree: %d",
+//                buffer.length, rawData.size(), result.size());
+                
         TreeNode root = new TreeNode(null, null);
         int count = stackToTree(result, root);
-        MatrixLog.i(TAG, "stackToTree: count=%s", count);
+        // 只有当count大于0时才打印日志，避免频繁输出count=0的日志
+        if (count > 0) {
+//            MatrixLog.i(TAG, "stackToTree: count=%s", count);
+        } else if (buffer.length > 0) {
+            // 如果缓冲区有数据但没有生成有效堆栈，记录警告日志
+//            MatrixLog.w(TAG, "structuredDataToStack: buffer has %d elements but no valid stack generated. Result size: %d",
+//                    buffer.length, result.size());
+        }
         result.clear();
         treeToStack(root, result);
+
+        // 记录最终结果
+//        MatrixLog.i(TAG, "[structuredDataToStack] final result size: %d", result.size());
     }
 
     private static boolean isIn(long trueId) {
@@ -190,10 +222,11 @@ public class TraceDataUtils {
         ListIterator<MethodItem> iterator = resultStack.listIterator(0);
         int count = 0;
         while (iterator.hasNext()) {
-            TreeNode node = new TreeNode(iterator.next(), lastNode);
+            MethodItem item = iterator.next();
+            TreeNode node = new TreeNode(item, lastNode);
             count++;
             if (null == lastNode && node.depth() != 0) {
-                MatrixLog.e(TAG, "[stackToTree] begin error! why the first node'depth is not 0!");
+                MatrixLog.e(TAG, "[stackToTree] begin error! why the first node's depth is not 0! First item: %s", item.toString());
                 return 0;
             }
             int depth = node.depth();
@@ -206,6 +239,10 @@ public class TraceDataUtils {
                 if (lastNode != null && lastNode.father != null) {
                     node.father = lastNode.father;
                     lastNode.father.add(node);
+                } else {
+                    // 添加诊断日志
+//                    MatrixLog.w(TAG, "[stackToTree] unable to find proper parent. lastNode: %s, depth: %d",
+//                            lastNode != null ? lastNode.item.toString() : "null", depth);
                 }
             } else {
                 lastNode.add(node);
@@ -331,7 +368,7 @@ public class TraceDataUtils {
         trimStack(tmp, targetCount, new TraceDataUtils.IStructuredDataFilter() {
             @Override
             public boolean isFilter(long during, int filterCount) {
-                return during < filterCount * Constants.TIME_UPDATE_CYCLE_MS;
+                return during < (long) filterCount * Constants.TIME_UPDATE_CYCLE_MS;
             }
 
             @Override
@@ -350,7 +387,7 @@ public class TraceDataUtils {
             }
         });
         for (MethodItem item : tmp) {
-            ss.append(item.methodId + "|");
+            ss.append(item.methodId).append("|");
         }
         return ss.toString();
     }
@@ -377,15 +414,26 @@ public class TraceDataUtils {
         if (sortList.isEmpty() && !stack.isEmpty()) {
             MethodItem root = stack.get(0);
             sortList.add(root);
-        } else if (sortList.size() > 1
-                && sortList.peek().methodId == AppMethodBeat.METHOD_ID_DISPATCH) {
-            sortList.removeFirst();
+        } else if (sortList.size() > 1) {
+            MethodItem firstItem = sortList.peek();
+            if (firstItem != null && firstItem.methodId == AppMethodBeat.METHOD_ID_DISPATCH) {
+                sortList.removeFirst();
+            }
         }
 
-        for (MethodItem item : sortList) {
-            ss.append(item.methodId + "|");
-            break;
+        if (!sortList.isEmpty()) {
+            for (MethodItem item : sortList) {
+                ss.append(item.methodId).append("|");
+                break;
+            }
+        } else {
+            // sortList为空的情况，添加诊断日志
+//            MatrixLog.w(TAG, "[getTreeKey] sortList is empty, stack size: %d", stack.size());
         }
+
+//        MatrixLog.i(TAG, "[getTreeKey] stack size: %d, stackCost: %d, allLimit: %d, sortList size: %d, result key length: %d",
+//                stack.size(), stackCost, allLimit, sortList.size(), ss.length());
+
         return ss.toString();
     }
 

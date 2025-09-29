@@ -121,8 +121,32 @@ public class EvilMethodTracer extends Tracer implements ILooperListener {
             // process
             int[] processStat = Utils.getProcessPriority(Process.myPid());
             LinkedList<MethodItem> stack = new LinkedList<>();
+//            MatrixLog.i(TAG, "[analyse] starting analysis with data length: %d, cost: %d ms", data.length, cost);
+            
             if (data.length > 0) {
-                TraceDataUtils.structuredDataToStack(data, stack, true, endMs);
+                // 创建一个临时列表来存储structuredDataToStack的结果
+                LinkedList<MethodItem> tempStack = new LinkedList<>();
+                TraceDataUtils.structuredDataToStack(data, tempStack, true, endMs);
+//                MatrixLog.i(TAG, "[analyse] after structuredDataToStack, tempStack size: %d", tempStack.size());
+
+                // 将结果复制到stack中
+                stack.addAll(tempStack);
+
+                if (!stack.isEmpty()) {
+//                    MatrixLog.i(TAG, "[analyse] stack after structuredDataToStack: %s", stack.toString());
+                } else {
+//                    MatrixLog.w(TAG, "[analyse] structuredDataToStack produced no results. Buffer length: %d", data.length);
+                    // 尝试非严格模式
+                    tempStack.clear();
+                    TraceDataUtils.structuredDataToStack(data, tempStack, false, endMs);
+//                    MatrixLog.i(TAG, "[analyse] after structuredDataToStack (non-strict), tempStack size: %d", tempStack.size());
+                    stack.addAll(tempStack);
+
+                    if (!stack.isEmpty()) {
+                        MatrixLog.i(TAG, "[analyse] stack after non-strict structuredDataToStack: %s", stack.toString());
+                    }
+                }
+                
                 TraceDataUtils.trimStack(stack, Constants.TARGET_EVIL_METHOD_STACK, new TraceDataUtils.IStructuredDataFilter() {
                     @Override
                     public boolean isFilter(long during, int filterCount) {
@@ -144,6 +168,13 @@ public class EvilMethodTracer extends Tracer implements ILooperListener {
                         }
                     }
                 });
+
+//                MatrixLog.i(TAG, "[analyse] after trimStack, stack size: %d", stack.size());
+//                if (!stack.isEmpty()) {
+//                    MatrixLog.i(TAG, "[analyse] stack after trimStack: %s", stack.toString());
+//                }
+            } else {
+                MatrixLog.w(TAG, "[analyse] No trace data available for analysis");
             }
 
 
@@ -158,6 +189,7 @@ public class EvilMethodTracer extends Tracer implements ILooperListener {
             try {
                 TracePlugin plugin = Matrix.with().getPluginByClass(TracePlugin.class);
                 if (null == plugin) {
+                    MatrixLog.w(TAG, "[analyse] TracePlugin is null");
                     return;
                 }
                 JSONObject jsonObject = new JSONObject();
@@ -193,11 +225,16 @@ public class EvilMethodTracer extends Tracer implements ILooperListener {
             print.append("|*\t\tForeground: ").append(isForeground).append("\n");
             print.append("|*\t\tPriority: ").append(processStat[0]).append("\tNice: ").append(processStat[1]).append("\n");
             print.append("|*\t\tis64BitRuntime: ").append(DeviceUtil.is64BitRuntime()).append("\n");
-            if (stackSize > 0) {
-                print.append("|*\t\tStackKey: ").append(stackKey).append("\n");
+
+            // 始终显示堆栈信息，即使为空也要显示
+            print.append("|*\t\tStackKey: ").append(stackKey == null ? "null" : (stackKey.isEmpty() ? "EMPTY" : stackKey)).append("\n");
+            print.append("|*\t\tStackSize: ").append(stackSize).append("\n");
+            print.append("|*\t\tStack Details:\n");
+            if (stackSize > 0 && stack != null && stack.length() > 0) {
                 print.append(stack.toString());
             } else {
                 print.append(String.format("AppMethodBeat isAlive[%s].", AppMethodBeat.getInstance().isAlive())).append("\n");
+                print.append("No stack trace available\n");
             }
 
             print.append("=========================================================================");
